@@ -33,9 +33,14 @@ local function parse(str, i, code, append)
     code[#code+1] = "self"
     return parse(str, i+1, code)
   elseif c == "(" then
+    local args = {}
     local m = code[#code].messages
-    m[#m].args, i = parse(str, i+1)
-    if str:sub(i, i) == ")" then
+    m[#m].args = args
+    repeat
+      args[#args+1], i = parse(str, i+1)
+      c = str:sub(i, i)
+    until c ~= "."
+    if c == ")" then
       i = i + 1
     end
     return parse(str, i+1, code)

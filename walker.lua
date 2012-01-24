@@ -2,9 +2,16 @@
 
 local dump = require "DataDumper"
 
+local walk_args
 local walk_expr
 local walk_instr
 local walk_instrs
+
+function walk_args(res, ast)
+  for k, v in ipairs(ast) do
+    walk_instrs(res, v)
+  end
+end
 
 function walk_expr(res, ast)
   if type(ast) == "string" then
@@ -17,7 +24,7 @@ function walk_expr(res, ast)
       res[#res+1] = ("%q"):format(v.name)
       if v.args then
         res[#res+1] = "("
-        walk_instrs(res, v.args)
+        walk_args(res, v.args)
         res[#res] = ")"
       end
       res[#res+1] = ", "
