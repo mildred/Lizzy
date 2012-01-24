@@ -1,0 +1,83 @@
+
+function_type ::= declare_special_type("function",
+  doc "a function"
+)
+caller_env ::= declare_special_type("caller_env",
+  doc "represents the caller's environment"
+)
+
+input_output_env ::= declare_type(
+  method("doc",
+    input(string_type,
+          doc "documentation about the input")
+  )
+  method("env",
+    inputs(type_type,
+           doc "the environments in which the function can be executed, if not specified, caller_env")
+  )
+)
+
+method_env ::= declare_type(
+  method("doc",
+    input(string_type,
+          doc "documentation about the method")
+  )
+  method("input",
+    doc "input"
+    input(type_type,
+          doc "the type accepted as an input argument")
+    input(function_type,
+          doc "the options to the function"
+          env(input_output_env, caller_env))
+  )
+  method("inputs",
+    doc "vararg inputs"
+    input(type_type,
+          doc "the type accepted as an input argument")
+    input(function_type,
+          doc "the options to the function"
+          env(input_output_env, caller_env))
+  )
+  method("output",
+    doc "output"
+    input(type_type,
+          doc "the type that is returned in this argument slot")
+    input(function_type,
+          doc "the options to the function"
+          env(input_output_env, caller_env))
+  )
+  method("outputs",
+    doc "vararg as outputs"
+    input(type_type,
+          doc "the type that is returned in these argument slot")
+    input(function_type,
+          doc "the options to the function"
+          env(input_output_env, caller_env))
+  )
+  method("return",
+    doc "declare the returned value, void by default"
+    input(type_type,
+          doc "the type that is returned")
+    input(function_type,
+          doc "the options to the function"
+          env(input_output_env, caller_env))
+  )
+)
+
+declare_type_env ::= declare_type(
+  method("method",
+    input(string_type,
+          doc "the name of the method")
+    input(function_type,
+          doc "the declaration of the function"
+          env(method_env, caller_env))
+  )
+)
+
+env ::= declare_type(
+  method("declare_type",
+    input(function_type,
+          env(declare_type_env, caller_env))
+    return(type_type)
+  )
+)

@@ -17,10 +17,13 @@ function walk_expr(res, ast)
   if type(ast) == "string" then
     res[#res+1] = "$"
     res[#res+1] = ("%q"):format(ast)
-  else
+  elseif ast.expr == "message" then
     walk_expr(res, ast.receiver)
     res[#res+1] = " "
     for k, v in ipairs(ast.messages) do
+      if v.escape then
+        res[#res+1] = "`"
+      end
       res[#res+1] = ("%q"):format(v.name)
       if v.args then
         res[#res+1] = "("
