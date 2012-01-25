@@ -51,9 +51,38 @@ local function loc_shuffle(operators, sequence)
   local scope   = operators[1].scope
   local assoc   = operators[1].assoc
   local special = operators[1].special
-  local a, b, c = walk_direction(sequence, assoc)
-  for i = a, b, c do
-    print(i)
+  if ary == 2 and special == nil then
+    local seqs = list{list{}}
+    for i, item in ipairs(sequence) do
+      if item[1] == "op" and item.op == op then
+        seqs:insert(list{})
+      else
+        seqs:last():insert(item)
+      end
+    end
+    if #seqs == 1 then
+      seqs = seqs[1]
+    else
+      local expr
+      while #seqs > 0 do
+        local item
+        if assoc == "right" then
+          item = seqs:remove()
+        else
+          item = seqs:remove(1)
+        end
+        item = loc_shuffle({table.unpack(operators, 2)}, item)
+        if expr == nil then
+          expr = item
+        elseif scope == "loc" then
+          expr = {"msg", name=op, receiver=item, args={expr}}
+        elseif scope == "env" then
+          expr = {"msg", name=op, receiver=nil,  args={item, expr}}
+        end
+      end
+      return expr
+    end
+    
   end
   return loc_shuffle({table.unpack(operators, 2)}, sequence)
 end

@@ -12,6 +12,7 @@ local function dbg(o, indent)
     local tablepart = 1
     for k, v in pairs(o) do
       local line = list{}
+      local val = dbg(v, indent .. "  ")
       if type(k) == "number" and tablepart == k then
         tablepart = tablepart + 1
       else
@@ -24,8 +25,13 @@ local function dbg(o, indent)
           line:insert(dbg(k, indent .. "  "))
           line:insert("] = ")
         end
+        if val:match("\n") then
+          line:insert("\n")
+          line:insert(indent)
+          line:insert("  ")
+        end
       end
-      line:insert(dbg(v, indent .. "  "))
+      line:insert(val)
       line = line:concat()
       parts:insert(line)
       totallen = totallen + #line + 1
