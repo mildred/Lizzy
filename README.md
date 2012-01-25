@@ -65,7 +65,7 @@ omit the backtick for literal numbers.
 Types
 -----
 
-It is possible to check type conformance using the ollowing syntax:
+It is possible to check type conformance using the following syntax:
 
     expr : type_expr
 
@@ -87,6 +87,22 @@ following characteristics:
 
 Then we have the unary operands that can apply to the operand before or after.
 And we have all the different priorities.
+
+Let's look at what happens with the following binary operators:
+
+    | operator | associativity |    scope    |
+    ------------------------------------------
+    |    <     |     left      |    local    |
+    |    >     |     right     |    local    |
+    |    <-    |     left      | environment |
+    |    >-    |     right     | environment |
+    
+    | before shifting     | after shifting        |
+    -----------------------------------------------
+    | r left <  r right   | r left  "<"(r right)  |
+    | r left >  r right   | r right ">"(r left)   |
+    | r left <- r right   | "<-"(r left. r right) |
+    | r left >- r right   | ">-"(r right. r left) |
 
 Static Typing
 =============

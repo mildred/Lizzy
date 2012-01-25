@@ -1,8 +1,11 @@
 #!/usr/bin/env lua
 
 local dump = require "DataDumper"
+local dbg  = require "dbg"
 
 local walk_args
+local walk_msg
+local walk_alt
 local walk_expr
 local walk_instr
 local walk_instrs
@@ -13,26 +16,35 @@ function walk_args(res, ast)
   end
 end
 
-function walk_expr(res, ast)
-  if type(ast) == "string" then
-    res[#res+1] = "$"
-    res[#res+1] = ("%q"):format(ast)
-  elseif ast.expr == "message" then
-    walk_expr(res, ast.receiver)
-    res[#res+1] = " "
-    for k, v in ipairs(ast.messages) do
-      if v.escape then
-        res[#res+1] = "`"
-      end
-      res[#res+1] = ("%q"):format(v.name)
-      if v.args then
-        res[#res+1] = "("
-        walk_args(res, v.args)
-        res[#res] = ")"
-      end
-      res[#res+1] = ", "
+function walk_msg(res, ast)
+  assert(ast[1] == "msg")
+  res[#res+1] = ("%q"):format(ast.name)
+  if ast.args then
+    res[#res+1] = "("
+    walk_args(res, ast.args)
+    res[#res] = ")"
+  end
+end
+
+function walk_alt(res, ast)
+  for k, v in ipairs(ast) do
+    if v[1] == "msg" then
+      walk_msg(res, v)
+      res[#res] = ", "
+    else
+      walk_alt(res, v)
     end
-    res[#res] = nil
+  end
+end
+
+function walk_expr(res, ast)
+  dbg(ast)
+  for k, v in ipairs(ast) do
+    if v[1] == "msg" then
+      walk_msg(res, v)
+    else
+      walk_alt(res, v)
+    end
   end
 end
 
