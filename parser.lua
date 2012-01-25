@@ -3,6 +3,7 @@
 local dump = require "DataDumper"
 local list = require "list"
 local dbg  = require "dbg"
+local show = require "show"
 
 table.unpack = table.unpack or unpack
 
@@ -44,7 +45,12 @@ end
 
 local function loc_shuffle(operators, sequence)
   if operators[1] == nil then
-    return sequence
+    if #sequence > 1 then
+      error("syntax error:\n" .. dbg(sequence))
+      return sequence
+    else
+      return sequence[1]
+    end
   end
 
   -- make a list of unary operators that can still be found
@@ -62,18 +68,23 @@ local function loc_shuffle(operators, sequence)
   local assoc   = operators[1].assoc
   local special = operators[1].special
   
-  -- standard binary operators
-  if ary == 2 and special == nil then
+  if ary == 2 and op ~= '' and  special == nil then
+    -----------------------------------------------
+    -- standard binary operators
+    -----------------------------
+
     local seqs = list{list{}}
     
     local function is_binary(i, item)
       local last_seq = seqs:last()
       local next_seq = list{table.unpack(sequence, i+1)}
       -- check there are only left unary operators in next_seq
+      local passed = false
       for j = 1, #next_seq do
         local itm = next_seq[j]
         if itm[1] == "msg" then
-          break -- next_seq passed the test
+          passed = true -- next_seq passed the test
+          break
         elseif itm[1] == "op"
           and unary_ops[itm.op] ~= nil
           and unary_ops[itm.op].assoc ~= "right" then
@@ -83,11 +94,16 @@ local function loc_shuffle(operators, sequence)
           return false
         end
       end
+      if not passed then
+        return false
+      end
       -- check there are only right unary operators right of in last_seq
+      local passed = false
       for j = #last_seq, 1, -1 do
         local itm = last_seq[j]
         if itm[1] == "msg" then
-          break -- next_seq passed the test
+          passed = true -- last_seq passed the test
+          break;
         elseif itm[1] == "op"
           and unary_ops[itm.op] ~= nil
           and unary_ops[itm.op].assoc ~= "left" then
@@ -96,6 +112,9 @@ local function loc_shuffle(operators, sequence)
           -- if this is an operator, it is either binary or unary left
           return false
         end
+      end
+      if not passed then
+        return false
       end
       -- all tests passed
       return true
@@ -123,13 +142,117 @@ local function loc_shuffle(operators, sequence)
         if expr == nil then
           expr = item
         elseif scope == "loc" then
-          expr = {"msg", name=op, receiver=item, args={expr}}
+          expr = {"msg", name=op, receiver=expr, args={item}}
         elseif scope == "env" then
-          expr = {"msg", name=op, receiver=nil,  args={item, expr}}
+          expr = {"msg", name=op, receiver=nil,  args={expr, item}}
         end
       end
       return expr
     end
+
+  elseif ary == 2 and op == '' then
+    -------------------------------
+    -- send operator
+    -----------------
+    assert(special == 'send', "empty operator should be special send")
+    assert(assoc   == 'left', "empty operator should have left associativity")
+
+    local max = #sequence
+    for i = 2, max do
+      local receiver = sequence[i-1]
+      local message  = sequence[i]
+      if receiver[1] == "msg" and message[1] == "msg" then
+        message.receiver = receiver
+        sequence[i-1] = nil
+      end
+    end
+
+    sequence = list(sequence:compact(1, max))
+    
+  elseif ary == 1 and special == nil then
+    -------------------------------------
+    -- standard unary operators
+    ----------------------------
+    
+    assert(assoc == "left" or assoc == "right",
+           "association must be one of 'left', 'right', 'both'")
+    assert(scope == "loc", "scope must be local for unary operators")
+    
+    local function find_next_message(i)
+      local j = i
+      if assoc == "left" then
+        i = i + 1
+        while j <= #sequence and sequence[j][1] ~= "msg" do
+          j = j + 1
+        end
+        if j > #sequence then
+          return nil
+        end
+      elseif assoc == "right" then
+        i = i - 1
+        while j >= 1 and sequence[j][1] ~= "msg" do
+          j = j - 1
+        end
+        if j < 1 then
+          return nil
+        end
+      end
+      return i, j
+    end
+    
+    -- TODO: doesn't work for right assoc
+    
+    local pos = 'left'
+    local i = 1
+    while i <= #sequence do
+      local item = sequence[i]
+      if item[1] == "msg" then
+        pos = 'right'
+      elseif item[1] == "op" and item.op == op and assoc == pos then
+        pos = 'right'
+        local a, b = find_next_message(i) -- a is i+1, b is a message
+        local rec = loc_shuffle(operators, list{sequence:unpack(a, b)})
+        sequence[i] = {"msg", name=op, receiver=rec}
+        if a > b then
+          a, b = b, a
+        end
+        for k = b, a, -1 do
+          sequence:remove(k)
+        end
+      end
+      i = i + 1
+    end
+    
+    
+    
+    -- local max = #sequence
+    -- 
+    -- if assoc == "left" or assoc == "both" then
+    --   dbg{op, left=sequence}
+    --   for i = max, 2, -1 do
+    --     local itm_op  = sequence[i-1]
+    --     local itm_msg = sequence[i]
+    --     if itm_op[1] == "op" and itm_op[1].op == op and itm_msg[1] == "msg" then
+    --       sequence[i] = {"msg", receiver=itm_msg, name=op}
+    --       sequence[i-1] = nil
+    --     end
+    --   end
+    --   sequence = list(sequence:compact(1, max))
+    -- end
+    -- 
+    -- if assoc == "right" or assoc == "both" then
+    --   dbg{op, right=sequence}
+    --   for i = 1, max - 1 do
+    --     local itm_msg = sequence[i]
+    --     local itm_op  = sequence[i+1]
+    --     if itm_op[1] == "op" and itm_op[1].op == op and itm_msg[1] == "msg" then
+    --       sequence[i] = {"msg", receiver=itm_msg, name=op}
+    --       sequence[i+1] = nil
+    --     end
+    --   end
+    --   sequence = list(sequence:compact(1, max))
+    -- end
+    -- dbg{op, unary=sequence}
     
   end
   
@@ -139,13 +262,13 @@ end
 
 local function shuffle(cfg, code)
   code.next = nil
-  dbg(code)
+  show(code)
   print "..."
   for k, seq in ipairs(code) do
     code[k] = loc_shuffle(cfg.operators, seq)
   end
   code.next = nil
-  dbg(code)
+  show(code)
   print "---"
 end
 

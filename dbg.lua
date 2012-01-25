@@ -49,6 +49,5 @@ local function dbg(o, indent)
   return res:concat()
 end
 
-return function(o)
-  print(dbg(o))
-end
+return dbg
+
