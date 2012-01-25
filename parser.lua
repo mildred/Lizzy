@@ -46,15 +46,63 @@ local function loc_shuffle(operators, sequence)
   if operators[1] == nil then
     return sequence
   end
+
+  -- make a list of unary operators that can still be found
+  local unary_ops = {}
+  for key, op_desc in ipairs(operators) do
+    if op_desc.ary == 1 then
+      unary_ops[op_desc[1]] = op_desc
+    end
+  end
+  
+  -- get the current operator spec
   local op      = operators[1][1]
   local ary     = operators[1].ary
   local scope   = operators[1].scope
   local assoc   = operators[1].assoc
   local special = operators[1].special
+  
+  -- standard binary operators
   if ary == 2 and special == nil then
     local seqs = list{list{}}
+    
+    local function is_binary(i, item)
+      local last_seq = seqs:last()
+      local next_seq = list{table.unpack(sequence, i+1)}
+      -- check there are only left unary operators in next_seq
+      for j = 1, #next_seq do
+        local itm = next_seq[j]
+        if itm[1] == "msg" then
+          break -- next_seq passed the test
+        elseif itm[1] == "op"
+          and unary_ops[itm.op] ~= nil
+          and unary_ops[itm.op].assoc ~= "right" then
+          -- go to next item, this is a left unary operator
+        else
+          -- if this is an operator, it is either binary or unary right
+          return false
+        end
+      end
+      -- check there are only right unary operators right of in last_seq
+      for j = #last_seq, 1, -1 do
+        local itm = last_seq[j]
+        if itm[1] == "msg" then
+          break -- next_seq passed the test
+        elseif itm[1] == "op"
+          and unary_ops[itm.op] ~= nil
+          and unary_ops[itm.op].assoc ~= "left" then
+          -- go to next item, this is a right unary operator
+        else
+          -- if this is an operator, it is either binary or unary left
+          return false
+        end
+      end
+      -- all tests passed
+      return true
+    end
+    
     for i, item in ipairs(sequence) do
-      if item[1] == "op" and item.op == op then
+      if item[1] == "op" and item.op == op and is_binary(i, item) then
         seqs:insert(list{})
       else
         seqs:last():insert(item)
@@ -84,6 +132,8 @@ local function loc_shuffle(operators, sequence)
     end
     
   end
+  
+  -- next operator
   return loc_shuffle({table.unpack(operators, 2)}, sequence)
 end
 
